@@ -55,9 +55,44 @@ const appendChildren = (el, children) => {
   }
 }
 
-const rollCurrentPlayer = () => {
-  return (e) => {
-    console.log('roll current player')
+const getRollingPlayer = (board) => {
+  const playerArr = board.players.map((player, i) => {
+    if (board.round === 10) board.finalRound = true;
+
+    if (!board.finalRound) {
+      if (player.isRolling && player.rolledTwo) {
+        console.log('got here 1');
+        player.isRolling = false;
+        player.rolledOne = null;
+        player.rolledTwo = null;
+
+        const newIndex = ((board.players.length - 1) === i) ? 0 : (i + 1);
+        if (newIndex === 0) board.round++; // will need to put before finalRound bool above
+
+        const nextPlayer = board.players[newIndex];
+        nextPlayer.isRolling = true;
+        return nextPlayer;
+      }
+      if (player.isRolling && !player.rolledTwo) {
+        console.log('got here 2');
+        return board.players[i];
+      }
+    }
+
+    // if (board.finalRound) {
+    //   if (player.isRolling && player.rolledThree)
+    // }
+
+  });
+  const playerArrCleaned = playerArr.filter(p => p !== undefined);
+  if (playerArrCleaned.length > 1) throw new Error('More than one rolling players!');
+  return playerArrCleaned[0];
+}
+
+const rollCurrentPlayer = (board) => {
+  return () => {
+    const rollingPlayer = getRollingPlayer(board);
+    rollingPlayer.roll(board);
   }
 }
 
@@ -66,19 +101,21 @@ const createGameControl = (board) => {
     const isValidGame = validate('start', { board });
     if (!isValidGame) return;
 
+    board.players[0].isRolling = true;
+
     const controls = document.getElementById('controls');
     controls.innerHTML = '';
 
     const rollButton = document.createElement('button');
-    rollButton.addEventListener('mousedown', rollCurrentPlayer);
-    rollButton.textContent = 'Roll Random!';
+    rollButton.addEventListener('mousedown', rollCurrentPlayer(board));
+    rollButton.textContent = 'Roll!';
 
     const spareButton = document.createElement('button');
-    spareButton.addEventListener('mousedown', rollCurrentPlayer);
+    spareButton.addEventListener('mousedown', rollCurrentPlayer(board));
     spareButton.textContent = 'Roll Spare!';
 
     const strikeButton = document.createElement('button');
-    strikeButton.addEventListener('mousedown', rollCurrentPlayer);
+    strikeButton.addEventListener('mousedown', rollCurrentPlayer(board));
     strikeButton.textContent = 'Roll Strike!';
 
     appendChildren(controls, [ rollButton, spareButton, strikeButton ]);
@@ -88,6 +125,8 @@ const createGameControl = (board) => {
 class ScoreBoard {
   constructor() {
     this.players = [];
+    this.round = 1;
+    this.finalRound = false;
   }
 
   static addPlayerTo(board) {
@@ -110,14 +149,42 @@ class ScoreBoard {
       newPlayer.value = '';
     };
   }
+
+  update(player) {
+    if (!this.finalRound) {
+      const completedTurn = this.round === player.roundScores.length;
+      if (completedTurn) {
+        const scoreType = player.roundScores[this.round - 1].scoreType;
+        if (scoreType === 'strike') {
+          console.log('rolled a strike');
+        } else if (scoreType === 'spare') {
+          console.log('rolled a spare');
+        } else if (scoreType === 'none') {
+          const secondRoll = document.getElementById(`${player.name}round${this.round}roll0`);
+          secondRoll.textContent = player.rollTwo.toString();
+        }
+        return;
+      }
+      if (!completedTurn) {
+        const firstRoll = document.getElementById(`${player.name}round${this.round}roll1`);
+        firstRoll.textContent = player.rollOne.toString();
+      }
+    }
+  }
 }
 
 class Player {
   constructor(name) {
     this.name = name;
-    this.firstRoll = null;
-    this.secondRoll = null;
-    this.score = 'score';
+    this.rollOne = null;
+    this.rollTwo = null;
+    this.rollThree = null;
+    this.rolledOne = false;
+    this.rolledTwo = false;
+    this.rolledThree = false;
+    this.roundScores = [];
+    this.totalScore = 'totalScore';
+    this.isRolling = false;
   }
 
   createScoreLane() {
@@ -134,7 +201,7 @@ class Player {
         round.textContent = `${this.name}`;
       } else {
         // create player's 10 rounds to be played
-        const attrs = { id: `round${i}`, class: 'round', name: `round${this.name}` };
+        const attrs = { id: `${this.name}round${i}`, class: 'round', name: `round${this.name}` };
         setAttributes(round, attrs);
         round.textContent = `${i}`;
       }
@@ -154,7 +221,7 @@ class Player {
         if (idx === 0) break;
 
         const roll = document.createElement('div');
-        setAttributes(roll, { id: `round${idx}roll${i}`, class: 'roll' });
+        setAttributes(roll, { id: `${this.name}round${idx}roll${i}`, class: 'roll' });
 
         // only add 2 rolls for rounds 1-9
         if (i < 2) round.appendChild(roll);
@@ -165,11 +232,31 @@ class Player {
     });
   }
 
-  roll() {
-    if (this.firstRoll === null) {
-      this.firstRoll = getRandomIntInclusive(0, 10);
-      return;
+  roll(board) {
+    if (!board.finalRound) {
+
+      if (this.rolledOne) {
+        this.rollTwo = getRandomIntInclusive(0, (10 - this.rollOne));
+        const points = this.rollOne + this.rollTwo;
+        const scoreType = points === 10 ? 'spare' : 'none';
+        this.roundScores.push({ round: board.round, points , scoreType });
+        this.rolledTwo = true;
+
+      } else {
+        // non-strike case
+        this.rollOne = getRandomIntInclusive(0, 10);
+        this.rolledOne = true;
+        // strike case
+        if (this.rollOne === 10) {
+          this.rollTwo = 0;
+          this.rolledTwo = true;
+          const scoreType = 'strike';
+          this.roundScores.push({ round: board.round, points: this.rollOne, scoreType });
+        }
+      }
     }
+
+    board.update(this);
   }
 }
 
