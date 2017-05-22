@@ -4,6 +4,10 @@
     <meta charset="utf-8">
     <style media="screen">
 
+    #controls {
+      margin-bottom: 20px;
+    }
+
     .lane {
       float: left;
       display: inline-block;
@@ -12,6 +16,8 @@
     .playerName {
       float: left;
       width: 80px;
+      text-align: center;
+      padding-top: 30px;
     }
 
     .round {
@@ -19,6 +25,7 @@
       margin: 2px;
       border: 1px solid black;
       width: 80px;
+      height: 80px;
     }
 
     .roll {
@@ -32,10 +39,11 @@
     <title>Chatbox Bowling</title>
   </head>
   <body>
-    <div id="players">
+    <div id="controls">
       <span>Player: </span>
       <input id="playerName" type="text" name="playerName" />
       <button id="addPlayerButton">+</button>
+      <button id="startGameButton">Start Game</button>
     </div>
     <div id="scoreboard">
     </div>
