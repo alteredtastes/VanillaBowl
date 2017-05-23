@@ -148,20 +148,35 @@ class ScoreBoard {
     };
   }
 
+  renderPoints(type, round, player) {
+    const points = document.createElement('div');
+    if (type === 'strike') points.textContent = 'X';
+    if (type === 'spare') points.textContent = '/';
+    if (type === 'none') points.textContent = player.getCurrentScore() || '#';
+    points.setAttribute('class', 'points');
+    round.appendChild(points);
+    return;
+  }
+
   update(player) {
     if (!this.finalRound) {
       const completedTurn = this.round === player.roundScores.length;
       if (completedTurn) {
+        const round = document.getElementById(`${player.name}round${this.round}`);
         const scoreType = player.roundScores[this.round - 1].scoreType;
+
         if (scoreType === 'strike') {
           const firstRoll = document.getElementById(`${player.name}round${this.round}roll1`);
           firstRoll.textContent = 'X';
+          this.renderPoints('strike', round);
         } else if (scoreType === 'spare') {
           const secondRoll = document.getElementById(`${player.name}round${this.round}roll0`);
           secondRoll.textContent = '/';
+          this.renderPoints('spare', round);
         } else if (scoreType === 'none') {
           const secondRoll = document.getElementById(`${player.name}round${this.round}roll0`);
           secondRoll.textContent = player.rollTwo.toString();
+          this.renderPoints('none', round, player);
         }
         return;
       }
@@ -256,6 +271,10 @@ class Player {
     }
 
     board.update(this);
+  }
+
+  getCurrentScore() {
+    return 'CrSc';
   }
 }
 
