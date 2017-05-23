@@ -56,26 +56,23 @@ const appendChildren = (el, children) => {
 }
 
 const getRollingPlayer = (board) => {
-  const playerArr = board.players.map((player, i) => {
+  const playerArr = board.players.map((player, i, arr) => {
     if (board.round === 10) board.finalRound = true;
 
     if (!board.finalRound) {
+      if (player.isRolling && !player.rolledTwo) {
+        return player;
+      }
       if (player.isRolling && player.rolledTwo) {
-        console.log('got here 1');
         player.isRolling = false;
-        player.rolledOne = null;
-        player.rolledTwo = null;
+        player.rolledOne = false;
+        player.rolledTwo = false;
 
         const newIndex = ((board.players.length - 1) === i) ? 0 : (i + 1);
         if (newIndex === 0) board.round++; // will need to put before finalRound bool above
 
         const nextPlayer = board.players[newIndex];
-        nextPlayer.isRolling = true;
         return nextPlayer;
-      }
-      if (player.isRolling && !player.rolledTwo) {
-        console.log('got here 2');
-        return board.players[i];
       }
     }
 
@@ -84,9 +81,10 @@ const getRollingPlayer = (board) => {
     // }
 
   });
-  const playerArrCleaned = playerArr.filter(p => p !== undefined);
-  if (playerArrCleaned.length > 1) throw new Error('More than one rolling players!');
-  return playerArrCleaned[0];
+  const rollingPlayers = playerArr.filter(p => p !== undefined);
+  if (rollingPlayers.length > 1) throw new Error('More than one rolling players!');
+  rollingPlayers[0].isRolling = true;
+  return rollingPlayers[0];
 }
 
 const rollCurrentPlayer = (board) => {
@@ -156,9 +154,11 @@ class ScoreBoard {
       if (completedTurn) {
         const scoreType = player.roundScores[this.round - 1].scoreType;
         if (scoreType === 'strike') {
-          console.log('rolled a strike');
+          const firstRoll = document.getElementById(`${player.name}round${this.round}roll1`);
+          firstRoll.textContent = 'X';
         } else if (scoreType === 'spare') {
-          console.log('rolled a spare');
+          const secondRoll = document.getElementById(`${player.name}round${this.round}roll0`);
+          secondRoll.textContent = '/';
         } else if (scoreType === 'none') {
           const secondRoll = document.getElementById(`${player.name}round${this.round}roll0`);
           secondRoll.textContent = player.rollTwo.toString();
@@ -241,7 +241,6 @@ class Player {
         const scoreType = points === 10 ? 'spare' : 'none';
         this.roundScores.push({ round: board.round, points , scoreType });
         this.rolledTwo = true;
-
       } else {
         // non-strike case
         this.rollOne = getRandomIntInclusive(0, 10);
