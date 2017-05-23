@@ -1,3 +1,4 @@
+
 const validate = (type, o) => {
   let isValid = true;
   const errors = [];
@@ -204,7 +205,7 @@ class Player {
     this.rolledTwo = false;
     this.rolledThree = false;
     this.roundScores = [];
-    this.runningScore = '-';
+    this.runningScore = 0;
     this.isRolling = false;
   }
 
@@ -262,11 +263,12 @@ class Player {
         const scoreType = points === 10 ? 'spare' : 'basic';
         this.roundScores.push({ round: board.round, points , scoreType });
         this.rolledTwo = true;
+        this.updateRunningScore(board);
       } else {
         // non-strike case
         this.rollOne = getRandomIntInclusive(0, 10);
         this.rolledOne = true;
-
+        this.updateRunningScore(board);
         // strike case
         if (this.rollOne === 10) {
           this.rollTwo = 0;
@@ -282,27 +284,28 @@ class Player {
 
   updateRunningScore(board) {
     if (board.round > 1) {
-      const prevScoreType = this.roundScores[board.round - 1].scoreType;
+      const prevScoreType = this.roundScores[board.round - 2].scoreType;
 
       switch (prevScoreType) {
         case 'strike':
           this.runningScore += this.rolledTwo ? (this.rollTwo * 2) : (this.rollOne * 2);
-          console.log('strike ' + this.runningScore)
+          console.log(`${this.name} strike ${this.runningScore}`)
           break;
         case 'spare':
           this.runningScore += this.rolledTwo ? this.rollTwo : (this.rollOne * 2);
-          console.log('spare ' + this.runningScore)
+          console.log(`${this.name} spare ${this.runningScore}`)
           break;
         case 'basic':
           this.runningScore += this.rolledTwo ? this.rollTwo : this.rollOne;
-          console.log('basic ' + this.runningScore)
+          console.log(`${this.name} basic ${this.runningScore}`)
           break;
         default:
           throw new Error('An invalid scoreType exists');
       }
 
     } else if (board.round <= 1) {
-      this.runningScore += this.rollOne;
+
+      this.runningScore += this.rolledTwo ? this.rollTwo : this.rollOne;
       console.log(this.runningScore)
     }
   }
