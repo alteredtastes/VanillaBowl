@@ -150,9 +150,25 @@ class ScoreBoard {
 
   renderPoints(type, round, player) {
     const points = document.createElement('div');
-    if (type === 'strike') points.textContent = 'X';
-    if (type === 'spare') points.textContent = '/';
-    if (type === 'none') points.textContent = player.getCurrentScore() || '#';
+
+    if (type === 'strike') {
+      const firstRoll = document.getElementById(`${player.name}round${this.round}roll1`);
+      firstRoll.textContent = 'X';
+      points.textContent = 'X'
+    };
+
+    if (type === 'spare') {
+      const secondRoll = document.getElementById(`${player.name}round${this.round}roll0`);
+      secondRoll.textContent = '/';
+      points.textContent = '/'
+    };
+
+    if (type === 'basic') {
+      const secondRoll = document.getElementById(`${player.name}round${this.round}roll0`);
+      secondRoll.textContent = player.rollTwo.toString();
+      points.textContent = player.runningScore
+    };
+
     points.setAttribute('class', 'points');
     round.appendChild(points);
     return;
@@ -161,25 +177,15 @@ class ScoreBoard {
   update(player) {
     if (!this.finalRound) {
       const completedTurn = this.round === player.roundScores.length;
+
       if (completedTurn) {
         const round = document.getElementById(`${player.name}round${this.round}`);
         const scoreType = player.roundScores[this.round - 1].scoreType;
 
-        if (scoreType === 'strike') {
-          const firstRoll = document.getElementById(`${player.name}round${this.round}roll1`);
-          firstRoll.textContent = 'X';
-          this.renderPoints('strike', round);
-        } else if (scoreType === 'spare') {
-          const secondRoll = document.getElementById(`${player.name}round${this.round}roll0`);
-          secondRoll.textContent = '/';
-          this.renderPoints('spare', round);
-        } else if (scoreType === 'none') {
-          const secondRoll = document.getElementById(`${player.name}round${this.round}roll0`);
-          secondRoll.textContent = player.rollTwo.toString();
-          this.renderPoints('none', round, player);
-        }
+        this.renderPoints(scoreType, round, player);
         return;
       }
+
       if (!completedTurn) {
         const firstRoll = document.getElementById(`${player.name}round${this.round}roll1`);
         firstRoll.textContent = player.rollOne.toString();
@@ -198,7 +204,7 @@ class Player {
     this.rolledTwo = false;
     this.rolledThree = false;
     this.roundScores = [];
-    this.totalScore = 'totalScore';
+    this.runningScore = '-';
     this.isRolling = false;
   }
 
@@ -253,13 +259,14 @@ class Player {
       if (this.rolledOne) {
         this.rollTwo = getRandomIntInclusive(0, (10 - this.rollOne));
         const points = this.rollOne + this.rollTwo;
-        const scoreType = points === 10 ? 'spare' : 'none';
+        const scoreType = points === 10 ? 'spare' : 'basic';
         this.roundScores.push({ round: board.round, points , scoreType });
         this.rolledTwo = true;
       } else {
         // non-strike case
         this.rollOne = getRandomIntInclusive(0, 10);
         this.rolledOne = true;
+
         // strike case
         if (this.rollOne === 10) {
           this.rollTwo = 0;
@@ -273,8 +280,31 @@ class Player {
     board.update(this);
   }
 
-  getCurrentScore() {
-    return 'CrSc';
+  updateRunningScore(board) {
+    if (board.round > 1) {
+      const prevScoreType = this.roundScores[board.round - 1].scoreType;
+
+      switch (prevScoreType) {
+        case 'strike':
+          this.runningScore += this.rolledTwo ? (this.rollTwo * 2) : (this.rollOne * 2);
+          console.log('strike ' + this.runningScore)
+          break;
+        case 'spare':
+          this.runningScore += this.rolledTwo ? this.rollTwo : (this.rollOne * 2);
+          console.log('spare ' + this.runningScore)
+          break;
+        case 'basic':
+          this.runningScore += this.rolledTwo ? this.rollTwo : this.rollOne;
+          console.log('basic ' + this.runningScore)
+          break;
+        default:
+          throw new Error('An invalid scoreType exists');
+      }
+
+    } else if (board.round <= 1) {
+      this.runningScore += this.rollOne;
+      console.log(this.runningScore)
+    }
   }
 }
 
