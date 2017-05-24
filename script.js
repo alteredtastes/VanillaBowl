@@ -20,9 +20,9 @@ const validate = (type, o) => {
         errors.push('Too many players! Must be 1 to 5.');
       }
       o.board.players.forEach(existingPlayer => {
-        if (existingPlayer.name === playerName) {
+        if (existingPlayer.name === playerName || existingPlayer.name.toUpperCase() === playerName) {
           isValid = false;
-          errors.push(`Players cannot have the same names. "${playerName}" is already taken.`);
+          errors.push(`Players cannot have the same names. "${existingPlayer.name}" is already taken.`);
         }
         return;
       });
@@ -31,6 +31,37 @@ const validate = (type, o) => {
     case 'start':
       if (o.board.players < 1) {
         isValid = false;
+      }
+      break;
+
+    case 'customRoll':
+      const invalidString = isNaN(parseInt(o.customRoll));
+      const spareString = o.customRoll === '/';
+      const strikeString = o.customRoll === 'X' || o.customRoll === 'x';
+
+      if (strikeString && o.player.rolledOne) {
+        isValid = false;
+        errors.push(`Strikes are only possible on your first roll of the round!`);
+      }
+      if (spareString && !o.player.rolledOne) {
+        isValid = false;
+        errors.push(`Spares are only possible after your first roll of the round!`);
+      }
+      if (o.customRoll === '') {
+        isValid = false;
+        return;
+      }
+      if (invalidString && !(spareString || strikeString)) {
+        isValid = false;
+        errors.push(`Valid roll values are: a number, a '/', an 'x' or an 'X'!`);
+      }
+      if (o.player.rolledOne && (o.customRoll > (10 - o.player.rollOne))) {
+        isValid = false;
+        errors.push(`Only ${10 - o.player.rollOne} pins are up! Roll a smaller number.`);
+      }
+      if (!o.player.rolledOne && o.customRoll > 10) {
+        isValid = false;
+        errors.push(`Can't roll higher than 10 pins!`);
       }
       break;
   }
@@ -88,11 +119,27 @@ const getRollingPlayer = (board) => {
   return rollingPlayers[0];
 }
 
-const rollCurrentPlayer = (board) => {
+const rollCurrentPlayer = (board, isCustomRoll) => {
   return () => {
     const rollingPlayer = getRollingPlayer(board);
-    rollingPlayer.roll(board);
+    const successful = rollingPlayer.roll(board, isCustomRoll);
+    if (!successful) return;
   }
+}
+
+const getCustomRoll = (player) => {
+  const customRollElement = document.getElementById('customRollInput');
+  let customRoll = customRollElement.value;
+  const isValidRoll = validate('customRoll', { customRoll, player });
+
+  if (!isValidRoll) {
+    customRollElement.value = '';
+    return false;
+  }
+  console.log(customRoll)
+  if (customRoll === 'X' || customRoll === 'x') customRoll = '10';
+  if (customRoll === '/') customRoll = (10 - player.rollOne).toString();
+  return parseInt(customRoll);
 }
 
 const createGameControl = (board) => {
@@ -105,19 +152,18 @@ const createGameControl = (board) => {
     const controls = document.getElementById('controls');
     controls.innerHTML = '';
 
-    const rollButton = document.createElement('button');
-    rollButton.addEventListener('mousedown', rollCurrentPlayer(board));
-    rollButton.textContent = 'Roll!';
+    const customRollButton = document.createElement('button');
+    const customRollInput = document.createElement('input');
+    customRollInput.setAttribute('id', 'customRollInput');
+    customRollButton.addEventListener('mousedown', rollCurrentPlayer(board, true));
+    customRollButton.setAttribute('class', 'rollCustom');
+    customRollButton.textContent = 'Roll!';
 
-    const spareButton = document.createElement('button');
-    spareButton.addEventListener('mousedown', rollCurrentPlayer(board));
-    spareButton.textContent = 'Roll Spare!';
+    const rollRandomButton = document.createElement('button');
+    rollRandomButton.addEventListener('mousedown', rollCurrentPlayer(board));
+    rollRandomButton.textContent = 'Roll Random!';
 
-    const strikeButton = document.createElement('button');
-    strikeButton.addEventListener('mousedown', rollCurrentPlayer(board));
-    strikeButton.textContent = 'Roll Strike!';
-
-    appendChildren(controls, [ rollButton, spareButton, strikeButton ]);
+    appendChildren(controls, [ customRollInput, customRollButton, rollRandomButton ]);
   }
 }
 
@@ -178,11 +224,12 @@ class ScoreBoard {
   update(player) {
     if (!this.finalRound) {
       const completedTurn = this.round === player.roundScores.length;
+      const rollInput = document.getElementById('customRollInput');
 
       if (completedTurn) {
         const round = document.getElementById(`${player.name}round${this.round}`);
         const scoreType = player.roundScores[this.round - 1].scoreType;
-
+        rollInput.value = '';
         this.renderPoints(scoreType, round, player);
         return;
       }
@@ -190,6 +237,7 @@ class ScoreBoard {
       if (!completedTurn) {
         const firstRoll = document.getElementById(`${player.name}round${this.round}roll1`);
         firstRoll.textContent = player.rollOne.toString();
+        rollInput.value = '';
       }
     }
   }
@@ -254,11 +302,12 @@ class Player {
     });
   }
 
-  roll(board) {
+  roll(board, isCustomRoll) {
     if (!board.finalRound) {
 
       if (this.rolledOne) {
-        this.rollTwo = getRandomIntInclusive(0, (10 - this.rollOne));
+        this.rollTwo = isCustomRoll ? getCustomRoll(this) : getRandomIntInclusive(0, (10 - this.rollOne));
+        if (this.rollTwo === false) return false; // custom roll invalid, exit quickly
         const points = this.rollOne + this.rollTwo;
         const scoreType = points === 10 ? 'spare' : 'basic';
         this.roundScores.push({ round: board.round, points , scoreType });
@@ -266,7 +315,8 @@ class Player {
         this.updateRunningScore(board);
       } else {
         // non-strike case
-        this.rollOne = getRandomIntInclusive(0, 10);
+        this.rollOne = isCustomRoll ? getCustomRoll(this) : getRandomIntInclusive(0, 10);
+        if (this.rollOne === false) return false; // custom roll invalid, exit quickly
         this.rolledOne = true;
         this.updateRunningScore(board);
         // strike case
@@ -278,7 +328,6 @@ class Player {
         }
       }
     }
-
     board.update(this);
   }
 
